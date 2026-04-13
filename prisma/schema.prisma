@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./goatsoccer.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("fan") // coach | player | fan
+  teamId    String?  // linked team for players
+  active    Boolean  @default(true)  // false = soft-deleted; keeps history intact
+  roasts    Roast[]
+  createdAt DateTime @default(now())
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  city        String
+  logo        String       @default("")
+  coach       String
+  players     Player[]
+  homeMatches Match[]      @relation("HomeTeam")
+  awayMatches Match[]      @relation("AwayTeam")
+  standings   Standing[]
+  leagueTeams LeagueTeam[]
+  createdAt   DateTime     @default(now())
+}
+
+model Player {
+  id          String      @id @default(cuid())
+  name        String
+  position    String
+  number      Int         @default(0)
+  goals       Int         @default(0)
+  assists     Int         @default(0)
+  yellowCards Int         @default(0)
+  redCards    Int         @default(0)
+  isCaptain   Boolean     @default(false)
+  inviteEmail String      @default("")   // email used when coach invited this player
+  team        Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId      String
+  goalEvents  GoalEvent[]
+  createdAt   DateTime    @default(now())
+}
+
+model Match {
+  id          String      @id @default(cuid())
+  homeTeam    Team        @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  homeTeamId  String
+  awayTeam    Team        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  awayTeamId  String
+  homeScore   Int         @default(0)
+  awayScore   Int         @default(0)
+  date        String
+  time        String
+  location    String      @default("")
+  status      String      @default("scheduled") // scheduled | live | finished
+  leagueId    String      @default("")
+  goalScorers GoalEvent[]
+  createdAt   DateTime    @default(now())
+}
+
+model GoalEvent {
+  id         String @id @default(cuid())
+  match      Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  matchId    String
+  player     Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId   String
+  playerName String
+  teamId     String
+}
+
+model League {
+  id        String       @id @default(cuid())
+  name      String
+  season    String
+  coachId   String
+  teams     LeagueTeam[]
+  createdAt DateTime     @default(now())
+}
+
+model LeagueTeam {
+  league   League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  leagueId String
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId   String
+
+  @@id([leagueId, teamId])
+}
+
+model Standing {
+  id             String @id @default(cuid())
+  team           Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId         String
+  leagueId       String @default("")
+  played         Int    @default(0)
+  won            Int    @default(0)
+  drawn          Int    @default(0)
+  lost           Int    @default(0)
+  goalsFor       Int    @default(0)
+  goalsAgainst   Int    @default(0)
+  goalDifference Int    @default(0)
+  points         Int    @default(0)
+  rank           Int    @default(0)
+
+  @@unique([teamId, leagueId])
+}
+
+model Roast {
+  id         String   @id @default(cuid())
+  author     User     @relation(fields: [authorId], references: [id])
+  authorId   String
+  targetType String   // match | player | team
+  targetId   String
+  content    String
+  likes      Int      @default(0)
+  createdAt  DateTime @default(now())
+}
